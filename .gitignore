@@ -4,6 +4,8 @@ node_modules/
 # Production
 dist/
 build/
+AIEmployees/
+CodeDoc/
 
 # Debug
 npm-debug.log*
@@ -26,3 +28,6 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+
+# Docs
+docs/
