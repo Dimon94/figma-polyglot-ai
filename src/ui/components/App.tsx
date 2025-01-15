@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/App.css';
+import { ProgressIndicator } from './ProgressIndicator';
+import { ErrorMessage } from './ErrorMessage';
 
 interface Settings {
     apiKey: string;
@@ -49,6 +51,7 @@ const App: React.FC = () => {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [progress, setProgress] = useState<{ percent: number; message: string } | null>(null);
 
     // 加载保存的设置
     useEffect(() => {
@@ -74,7 +77,15 @@ const App: React.FC = () => {
         const handleMessage = (event: MessageEvent) => {
             console.log('[Figma Translator] Message received:', event.data);
             const pluginMessage = event.data.pluginMessage;
-            if (pluginMessage && pluginMessage.type === 'settings-loaded') {
+            
+            if (pluginMessage.type === 'translation-progress') {
+                setProgress({
+                    percent: pluginMessage.progress,
+                    message: pluginMessage.message
+                });
+            } else if (pluginMessage.type === 'translation-complete') {
+                setProgress(null);
+            } else if (pluginMessage.type === 'settings-loaded') {
                 console.log('[Figma Translator] Settings loaded:', pluginMessage.settings);
                 // 确保使用最新的 endpoint
                 const loadedSettings = pluginMessage.settings as Settings;
@@ -138,10 +149,12 @@ const App: React.FC = () => {
     if (error) {
         console.log('[Figma Translator] Rendering error state:', error);
         return (
-            <div className="app error">
-                <h2>Error</h2>
-                <p>{error}</p>
-                <button onClick={() => setError(null)}>Dismiss</button>
+            <div className="app">
+                <h2>Figma Translator</h2>
+                <ErrorMessage 
+                    message={error}
+                    onDismiss={() => setError(null)}
+                />
             </div>
         );
     }
@@ -159,6 +172,18 @@ const App: React.FC = () => {
     return (
         <div className="app">
             <h2>Figma Translator</h2>
+            {progress && (
+                <ProgressIndicator 
+                    progress={progress.percent} 
+                    message={progress.message} 
+                />
+            )}
+            {error && (
+                <ErrorMessage 
+                    message={error}
+                    onDismiss={() => setError(null)}
+                />
+            )}
             <div className="settings">
                 <h3>Settings</h3>
                 <div className="setting-item">

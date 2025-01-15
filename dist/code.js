@@ -76,9 +76,17 @@ function debug() {
     }
 }
 figma.showUI(__html__, { width: 400, height: 500 });
+// 更新翻译进度
+function updateProgress(percent, message) {
+    figma.ui.postMessage({
+        type: 'translation-progress',
+        progress: percent,
+        message: message
+    });
+}
 // 监听来自UI的消息
 figma.ui.onmessage = function (msg) { return __awaiter(void 0, void 0, void 0, function () {
-    var settings, selectedTextNodes, settings, translatedCount, _i, selectedTextNodes_1, node, clone, translated, error_1;
+    var settings, selectedTextNodes, settings, translatedCount, totalNodes, _i, selectedTextNodes_1, node, progress, clone, translated, error_1;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -120,11 +128,16 @@ figma.ui.onmessage = function (msg) { return __awaiter(void 0, void 0, void 0, f
             case 6:
                 _a.trys.push([6, 12, , 13]);
                 translatedCount = 0;
+                totalNodes = selectedTextNodes.length;
+                // 显示初始进度
+                updateProgress(0, "\u51C6\u5907\u7FFB\u8BD1 ".concat(totalNodes, " \u4E2A\u6587\u672C\u56FE\u5C42..."));
                 _i = 0, selectedTextNodes_1 = selectedTextNodes;
                 _a.label = 7;
             case 7:
                 if (!(_i < selectedTextNodes_1.length)) return [3 /*break*/, 11];
                 node = selectedTextNodes_1[_i];
+                progress = Math.round((translatedCount / totalNodes) * 100);
+                updateProgress(progress, "\u6B63\u5728\u7FFB\u8BD1\u7B2C ".concat(translatedCount + 1, "/").concat(totalNodes, " \u4E2A\u6587\u672C\u56FE\u5C42 (").concat(progress, "%)"));
                 clone = node.clone();
                 clone.x = node.x + node.width + 20;
                 clone.y = node.y;
@@ -145,12 +158,19 @@ figma.ui.onmessage = function (msg) { return __awaiter(void 0, void 0, void 0, f
                 _i++;
                 return [3 /*break*/, 7];
             case 11:
-                figma.notify("Translated ".concat(translatedCount, " text layers"));
+                // 完成翻译，显示100%进度
+                updateProgress(100, "\u5DF2\u5B8C\u6210 ".concat(totalNodes, " \u4E2A\u6587\u672C\u56FE\u5C42\u7684\u7FFB\u8BD1\uFF01"));
+                // 延迟一会儿再隐藏进度条，让用户能看到完成状态
+                setTimeout(function () {
+                    figma.ui.postMessage({ type: 'translation-complete' });
+                }, 1500);
+                figma.notify("\u5DF2\u7FFB\u8BD1 ".concat(translatedCount, " \u4E2A\u6587\u672C\u56FE\u5C42"));
                 return [3 /*break*/, 13];
             case 12:
                 error_1 = _a.sent();
                 console.error('[Figma Translator] Translation failed:', error_1);
-                figma.notify('Translation failed: ' + (error_1.message || 'Unknown error'));
+                figma.notify('翻译失败: ' + (error_1.message || '未知错误'));
+                figma.ui.postMessage({ type: 'translation-complete' });
                 return [3 /*break*/, 13];
             case 13: return [2 /*return*/];
         }

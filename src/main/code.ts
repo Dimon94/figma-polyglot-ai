@@ -19,6 +19,15 @@ function debug(...args: any[]) {
 
 figma.showUI(__html__, { width: 400, height: 500 });
 
+// 更新翻译进度
+function updateProgress(percent: number, message: string) {
+    figma.ui.postMessage({ 
+        type: 'translation-progress',
+        progress: percent,
+        message: message
+    });
+}
+
 // 监听来自UI的消息
 figma.ui.onmessage = async (msg) => {
     console.log('[Figma Translator] Received message:', msg);
@@ -59,7 +68,19 @@ figma.ui.onmessage = async (msg) => {
         // 开始翻译
         try {
             let translatedCount = 0;
+            const totalNodes = selectedTextNodes.length;
+            
+            // 显示初始进度
+            updateProgress(0, `准备翻译 ${totalNodes} 个文本图层...`);
+
             for (const node of selectedTextNodes) {
+                // 更新进度
+                const progress = Math.round((translatedCount / totalNodes) * 100);
+                updateProgress(
+                    progress,
+                    `正在翻译第 ${translatedCount + 1}/${totalNodes} 个文本图层 (${progress}%)`
+                );
+
                 // 创建一个克隆以保留原始文本
                 const clone = node.clone();
                 clone.x = node.x + node.width + 20;
@@ -79,10 +100,19 @@ figma.ui.onmessage = async (msg) => {
                 translatedCount++;
             }
 
-            figma.notify(`Translated ${translatedCount} text layers`);
+            // 完成翻译，显示100%进度
+            updateProgress(100, `已完成 ${totalNodes} 个文本图层的翻译！`);
+            
+            // 延迟一会儿再隐藏进度条，让用户能看到完成状态
+            setTimeout(() => {
+                figma.ui.postMessage({ type: 'translation-complete' });
+            }, 1500);
+
+            figma.notify(`已翻译 ${translatedCount} 个文本图层`);
         } catch (error: any) {
             console.error('[Figma Translator] Translation failed:', error);
-            figma.notify('Translation failed: ' + (error.message || 'Unknown error'));
+            figma.notify('翻译失败: ' + (error.message || '未知错误'));
+            figma.ui.postMessage({ type: 'translation-complete' });
         }
     }
 };
