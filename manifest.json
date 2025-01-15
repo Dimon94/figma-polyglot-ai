@@ -1,0 +1,27 @@
+{
+  "name": "Figma Translator",
+  "id": "figma-translator",
+  "api": "1.0.0",
+  "main": "dist/code.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["*"],
+    "reasoning": "Plugin needs to access various AI translation APIs (OpenAI, Deepseek, etc.) to perform text translation"
+  },
+  "permissions": ["currentuser"],
+  "capabilities": ["textreview"],
+  "menu": [
+    {
+      "name": "Translate to English",
+      "command": "translate"
+    },
+    {
+      "separator": true
+    },
+    {
+      "name": "Settings",
+      "command": "settings"
+    }
+  ]
+} 
