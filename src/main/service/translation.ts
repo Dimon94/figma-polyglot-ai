@@ -30,13 +30,6 @@ export async function translateText(
         return text;
     }
 
-    console.log('[Figma Translator] Starting translation with config:', {
-        endpoint: config.apiEndpoint,
-        model: config.modelName,
-        provider: config.provider,
-        textLength: text.length
-    });
-
     try {
         // 根据不同的提供商构建请求体
         const requestBody = {
@@ -60,8 +53,6 @@ export async function translateText(
             })
         };
 
-        console.log('[Figma Translator] Request body:', JSON.stringify(requestBody, null, 2));
-
         const response = await fetch(config.apiEndpoint, {
             method: 'POST',
             headers: {
@@ -71,8 +62,6 @@ export async function translateText(
             body: JSON.stringify(requestBody)
         });
 
-        console.log('[Figma Translator] API response status:', response.status);
-
         if (!response.ok) {
             const errorText = await response.text();
             console.error('[Figma Translator] API error response:', errorText);
@@ -80,7 +69,7 @@ export async function translateText(
         }
 
         const data = await response.json();
-        console.log('[Figma Translator] API response data:', JSON.stringify(data, null, 2));
+       
 
         if (!data.choices?.[0]?.message?.content) {
             console.error('[Figma Translator] Invalid API response format:', data);
@@ -88,12 +77,7 @@ export async function translateText(
         }
 
         const translatedText = data.choices[0].message.content.trim();
-        console.log('[Figma Translator] Translation result:', {
-            original: text,
-            translated: translatedText,
-            provider: config.provider,
-            model: config.modelName
-        });
+        
 
         return translatedText;
     } catch (error: any) {
