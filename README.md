@@ -29,8 +29,8 @@
 
 1. **克隆项目**
 ```bash
-git clone [your-repository-url]
-cd figma-translator
+git clone [https://github.com/Dimon94/figma-polyglot-ai.git]
+cd figma-polyglot-ai
 ```
 
 2. **安装依赖**
