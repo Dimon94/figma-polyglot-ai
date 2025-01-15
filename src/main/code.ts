@@ -1,16 +1,20 @@
 import { traverseNode } from './utils/traverse';
 import { translateText } from './service/translation';
 import { TranslationHistory } from './service/translation/TranslationHistory';
+import { SVGGenerationService, SVGGenerationOptions } from './service/svg/SVGGenerationService';
+import { AIModelService } from './service/ai/AIModelService';
+import { SettingsService } from './service/settings/SettingsService';
 
-// 默认设置
-const DEFAULT_SETTINGS = {
-    apiKey: '',
-    apiEndpoint: 'https://api.openai.com/v1/chat/completions',
-    modelName: 'gpt-3.5-turbo',
-    provider: 'openai'
-} as const;
+// 创建服务实例
+const settingsService = SettingsService.getInstance();
+const aiService = new AIModelService();
+const svgService = new SVGGenerationService(aiService);
 
-figma.showUI(__html__, { width: 400, height: 500 });
+// 显示UI
+figma.showUI(__html__, {
+    width: 450,
+    height: 550,
+});
 
 // 更新翻译进度
 function updateProgress(percent: number, message: string) {
@@ -255,19 +259,19 @@ async function regenerateTranslation(record: TranslationRecord) {
 
 // 监听来自UI的消息
 figma.ui.onmessage = async (msg) => {
-    console.log('[Figma Translator] Received message:', msg);
+    console.log('[Figma Plugin] Received message:', msg);
 
     if (msg.type === 'load-settings') {
         // 加载设置
-        const settings = await figma.clientStorage.getAsync('settings') || DEFAULT_SETTINGS;
-        console.log('[Figma Translator] Loaded settings:', settings);
+        const settings = await settingsService.loadSettings();
+        console.log('[Figma Plugin] Loaded settings:', settings);
         figma.ui.postMessage({ type: 'settings-loaded', settings });
     }
     else if (msg.type === 'save-settings') {
         // 保存设置
-        await figma.clientStorage.setAsync('settings', msg.settings);
-        console.log('[Figma Translator] Settings saved:', msg.settings);
-        figma.notify('Settings saved successfully!');
+        await settingsService.saveSettings(msg.settings);
+        console.log('[Figma Plugin] Settings saved:', msg.settings);
+        figma.notify('设置已保存');
     }
     else if (msg.type === 'get-history') {
         // 获取翻译历史记录
@@ -302,13 +306,9 @@ figma.ui.onmessage = async (msg) => {
             return;
         }
 
-        // 加载设置
-        const settings = await figma.clientStorage.getAsync('settings');
-        console.log('[Figma Translator] Translation settings:', settings);
-
-        if (!settings || !settings.apiKey) {
-            figma.notify("Please configure API settings first");
-            figma.showUI(__html__);
+        // 检查API设置
+        if (!settingsService.getApiKey()) {
+            figma.notify("请先配置API密钥");
             return;
         }
 
@@ -321,26 +321,7 @@ figma.ui.onmessage = async (msg) => {
             updateProgress(0, `准备翻译 ${totalNodes} 个文本图层...`);
 
             // 用于收集所有翻译项
-            const translations: Array<{
-                sourceText: string;
-                translatedText: string;
-                elementId: string;
-                elementType: string;
-                position?: { x: number; y: number };
-                style?: {
-                    fontSize?: number;
-                    fontName?: FontName;
-                    textAlignHorizontal?: "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED";
-                    textAlignVertical?: "TOP" | "CENTER" | "BOTTOM";
-                    fills?: Paint[];
-                    effects?: Effect[];
-                    constraints?: Constraints;
-                };
-                size?: {
-                    width: number;
-                    height: number;
-                };
-            }> = [];
+            const translations: TranslationItem[] = [];
 
             for (const node of selectedTextNodes) {
                 // 更新进度
@@ -363,7 +344,7 @@ figma.ui.onmessage = async (msg) => {
 
                 // 翻译文本
                 const sourceText = node.characters;
-                const translated = await translateText(sourceText, settings);
+                const translated = await translateText(sourceText, settingsService.getCurrentSettings());
                 
                 // 只有当翻译结果与原文不同时才更新和记录
                 if (translated !== sourceText) {
@@ -423,6 +404,53 @@ figma.ui.onmessage = async (msg) => {
             });
         }
     }
+    else if (msg.type === 'generate-svg') {
+        try {
+            // 先加载设置
+            await settingsService.loadSettings();
+            
+            // 检查是否配置了API密钥
+            if (!settingsService.getApiKey()) {
+                throw new Error('请先配置API密钥');
+            }
+
+            // 生成SVG
+            const result = await svgService.generateSVG(msg.options as SVGGenerationOptions);
+            
+            // 创建SVG节点
+            const svgNode = figma.createNodeFromSvg(result.svgCode);
+            
+            // 设置节点名称
+            svgNode.name = `AI Generated SVG - ${msg.options.description}`;
+            
+            // 如果指定了尺寸，设置节点尺寸
+            if (msg.options.width) {
+                svgNode.resize(msg.options.width, msg.options.height || msg.options.width);
+            }
+            
+            // 将节点添加到当前页面
+            figma.currentPage.appendChild(svgNode);
+            
+            // 选中新创建的节点
+            figma.currentPage.selection = [svgNode];
+            
+            // 将视图定位到新节点
+            figma.viewport.scrollAndZoomIntoView([svgNode]);
+            
+            // 通知UI生成成功
+            figma.ui.postMessage({ 
+                type: 'generate-success',
+                metadata: result.metadata
+            });
+        } catch (error: unknown) {
+            console.error('[SVG Generator] Generation error:', error);
+            // 通知UI生成失败
+            figma.ui.postMessage({ 
+                type: 'generate-error',
+                error: error instanceof Error ? error.message : '生成SVG时发生未知错误'
+            });
+        }
+    }
 };
 
 // 注册翻译命令
@@ -450,14 +478,14 @@ figma.on('run', async ({ command }) => {
         }
 
         try {
-            // 获取API配置
-            const settings = await figma.clientStorage.getAsync('settings');
-            console.log('[Figma Translator] Translation settings:', settings);
+            // 先加载设置
+            await settingsService.loadSettings();
             
-            if (!settings?.apiKey || !settings?.apiEndpoint || !settings?.modelName) {
+            // 检查API设置
+            if (!settingsService.getApiKey()) {
                 console.log('[Figma Translator] Missing API configuration');
-                figma.notify('Please configure API settings first');
-                figma.showUI(__html__, { width: 400, height: 500 });
+                figma.notify('请先配置API密钥');
+                figma.showUI(__html__, { width: 450, height: 550 });
                 return;
             }
 
@@ -486,26 +514,7 @@ figma.on('run', async ({ command }) => {
             console.log('[Figma Translator] Created clone');
             
             // 用于收集所有翻译项
-            const translations: Array<{
-                sourceText: string;
-                translatedText: string;
-                elementId: string;
-                elementType: string;
-                position?: { x: number; y: number };
-                style?: {
-                    fontSize?: number;
-                    fontName?: FontName;
-                    textAlignHorizontal?: "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED";
-                    textAlignVertical?: "TOP" | "CENTER" | "BOTTOM";
-                    fills?: Paint[];
-                    effects?: Effect[];
-                    constraints?: Constraints;
-                };
-                size?: {
-                    width: number;
-                    height: number;
-                };
-            }> = [];
+            const translations: TranslationItem[] = [];
             
             // 遍历节点并翻译
             let translatedCount = 0;
@@ -528,7 +537,7 @@ figma.on('run', async ({ command }) => {
                         }
 
                         const sourceText = node.characters;
-                        const translated = await translateText(sourceText, settings);
+                        const translated = await translateText(sourceText, settingsService.getCurrentSettings());
                         
                         // 只有当翻译结果与原文不同时才更新和记录
                         if (translated !== sourceText) {
@@ -595,10 +604,10 @@ figma.on('run', async ({ command }) => {
             }, 1500);
             
             console.log(`[Figma Translator] Translation completed: ${translatedCount} texts translated`);
-            figma.notify(`Translation completed! (${translatedCount} texts translated)`);
+            figma.notify(`已翻译 ${translatedCount} 个文本图层`);
         } catch (error: any) {
             console.error('[Figma Translator] Translation failed:', error);
-            figma.notify('Translation failed: ' + (error.message || 'Unknown error'));
+            figma.notify('翻译失败: ' + (error.message || '未知错误'));
             figma.ui.postMessage({ 
                 type: 'translation-complete',
                 timestamp: Date.now()
@@ -609,6 +618,6 @@ figma.on('run', async ({ command }) => {
     if (command === 'settings') {
         // 打开设置UI
         console.log('[Figma Translator] Opening settings UI');
-        figma.showUI(__html__, { width: 400, height: 500 });
+        figma.showUI(__html__, { width: 450, height: 550 });
     }
 }); 

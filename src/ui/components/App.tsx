@@ -1,105 +1,160 @@
 import React, { useState, useEffect } from 'react';
-import { TranslationProgress } from './translation/TranslationProgress';
+import '../styles/App.css';
+import '../styles/SVGGeneratorPanel.css';
+import '../styles/SettingsPanel.css';
+import { SVGGeneratorPanel } from './SVGGeneratorPanel';
 import { TranslationHistoryView } from './translation/TranslationHistory';
-import './App.css';
+import { SettingsPanel } from './settings/SettingsPanel';
+import { SVGGenerationOptions } from '../../main/service/svg/SVGGenerationService';
 
-interface TranslationProgress {
-  total: number;
-  completed: number;
-  failed: number;
-  status: 'idle' | 'translating' | 'completed' | 'error';
-  errorMessage?: string;
-}
-
-export const App: React.FC = () => {
-  const [showHistory, setShowHistory] = useState(false);
-  const [progress, setProgress] = useState<TranslationProgress>({
-    total: 0,
-    completed: 0,
-    failed: 0,
-    status: 'idle'
-  });
+export function App() {
+  const [currentView, setCurrentView] = useState<'translation' | 'svg' | 'settings' | 'history'>('translation');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [translationProgress, setTranslationProgress] = useState<{
+    percent: number;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     // 监听来自插件的消息
-    const handleMessage = (event: MessageEvent) => {
-      const { type, message } = event.data.pluginMessage || {};
-      
-      if (type === 'translation-progress') {
-        // 从消息中提取总数
-        const match = message?.match(/(\d+)\/(\d+)/);
-        const current = match ? parseInt(match[1]) : 0;
-        const total = match ? parseInt(match[2]) : 1;
-        
-        setProgress({
-          total: total,
-          completed: current,
-          failed: 0,
-          status: 'translating',
-          errorMessage: message
-        });
-      } else if (type === 'translation-complete') {
-        // 延迟重置状态，让用户能看到完成状态
-        setTimeout(() => {
-          setProgress({
-            total: 0,
-            completed: 0,
-            failed: 0,
-            status: 'idle'
+    window.onmessage = (event) => {
+      const message = event.data.pluginMessage;
+      if (!message) return;
+
+      switch (message.type) {
+        case 'translation-progress':
+          setTranslationProgress({
+            percent: message.progress,
+            message: message.message
           });
-        }, 1500);
+          break;
+        case 'translation-complete':
+          setTimeout(() => setTranslationProgress(null), 1500);
+          break;
+        case 'generate-error':
+          setError(message.error);
+          setIsGenerating(false);
+          break;
+        case 'generate-success':
+          setIsGenerating(false);
+          break;
       }
     };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  // 渲染主页面内容
-  const renderMainContent = () => (
-    <>
-      <div className="header">
-        <h1>Figma 翻译助手</h1>
-        <button 
-          className="history-button"
-          onClick={() => setShowHistory(true)}
-        >
-          查看历史记录
-        </button>
-      </div>
+  const handleGenerate = async (options: SVGGenerationOptions) => {
+    setIsGenerating(true);
+    setError(null);
 
-      <div className="main-content">
-        {(progress.status === 'translating' || progress.status === 'completed') && (
-          <TranslationProgress
-            current={progress.completed}
-            total={progress.total}
-            status={progress.status}
-            errorMessage={progress.errorMessage}
+    try {
+      await parent.postMessage({ pluginMessage: {
+        type: 'generate-svg',
+        options,
+      } }, '*');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '生成SVG时发生错误');
+      setIsGenerating(false);
+    }
+  };
+
+  const renderNavigation = () => (
+    <div className="navigation">
+      <button
+        className={`nav-button ${currentView === 'translation' ? 'active' : ''}`}
+        onClick={() => setCurrentView('translation')}
+      >
+        翻译
+      </button>
+      <button
+        className={`nav-button ${currentView === 'svg' ? 'active' : ''}`}
+        onClick={() => setCurrentView('svg')}
+      >
+        SVG生成
+      </button>
+      <button
+        className={`nav-button ${currentView === 'settings' ? 'active' : ''}`}
+        onClick={() => setCurrentView('settings')}
+      >
+        设置
+      </button>
+    </div>
+  );
+
+  const renderContent = () => {
+    switch (currentView) {
+      case 'settings':
+        return (
+          <SettingsPanel
+            onClose={() => setCurrentView('translation')}
           />
-        )}
-
-        {progress.status === 'idle' && (
-          <div className="empty-state">
-            <div className="empty-state-icon">📝</div>
-            <p>
-              选择需要翻译的文本图层或包含文本的组件（如 Frame），然后点击右键菜单中的"翻译"选项开始翻译。
-              <br /><br />
-              支持批量选择多个文本图层同时翻译。
-            </p>
+        );
+      case 'svg':
+        return (
+          <div className="svg-view">
+            <div className="header">
+              <h1>SVG生成器</h1>
+            </div>
+            <div className="main-content">
+              {error && (
+                <div className="error-message">
+                  {error}
+                </div>
+              )}
+              <SVGGeneratorPanel
+                onGenerate={handleGenerate}
+                isGenerating={isGenerating}
+              />
+            </div>
           </div>
-        )}
-      </div>
-    </>
-  );
-
-  // 渲染历史记录页面
-  const renderHistoryContent = () => (
-    <TranslationHistoryView onClose={() => setShowHistory(false)} />
-  );
+        );
+      case 'history':
+        return (
+          <TranslationHistoryView
+            onClose={() => setCurrentView('translation')}
+          />
+        );
+      case 'translation':
+      default:
+        return (
+          <div className="translation-panel">
+            <div className="header">
+              <h1>Figma 翻译助手</h1>
+              <button 
+                className="history-button"
+                onClick={() => setCurrentView('history')}
+              >
+                查看历史
+              </button>
+            </div>
+            <div className="main-content">
+              {translationProgress && (
+                <div className="progress-container">
+                  <div className="progress-bar">
+                    <div 
+                      className="progress-fill"
+                      style={{ width: `${translationProgress.percent}%` }}
+                    />
+                  </div>
+                  <div className="progress-message">
+                    {translationProgress.message}
+                  </div>
+                </div>
+              )}
+              <div className="empty-state">
+                <div className="empty-state-icon">🔍</div>
+                <p>选择要翻译的文本图层，然后点击右键菜单中的"Translate to English"开始翻译。</p>
+              </div>
+            </div>
+          </div>
+        );
+    }
+  };
 
   return (
     <div className="app">
-      {showHistory ? renderHistoryContent() : renderMainContent()}
+      {renderNavigation()}
+      {renderContent()}
     </div>
   );
-}; 
+} 

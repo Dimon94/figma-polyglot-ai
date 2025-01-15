@@ -31,13 +31,33 @@ export async function translateText(
     }
 
     try {
+        console.log('[Figma Translator] Translation config:', {
+            provider: config.provider,
+            modelName: config.modelName,
+            apiEndpoint: config.apiEndpoint
+        });
+
         // 根据不同的提供商构建请求体
         const requestBody = {
             model: config.modelName,
             messages: [
                 {
                     role: "system",
-                    content: "You are a professional translator. Translate the following Chinese text to English. Keep the translation concise and natural. Maintain the original formatting. Only return the translated text, without any explanations or additional content."
+                    content: `You are a professional translator specializing in Chinese to English translation. Follow these guidelines:
+1. ALWAYS maintain the original text's tone and style
+2. Keep formatting elements (spaces, line breaks) exactly as they appear
+3. For UI/UX text:
+   - Use standard English UI terminology
+   - Keep translations concise and clear
+   - Maintain consistent capitalization
+4. For design-related content:
+   - Preserve technical terms in their standard English form
+   - Maintain any numerical values and units as is
+5. Output rules:
+   - Return ONLY the translated text
+   - NO explanations or additional content
+   - NO Chinese characters in output
+   - Preserve all special characters and punctuation`
                 },
                 {
                     role: "user",
@@ -52,6 +72,11 @@ export async function translateText(
                 stream: false
             })
         };
+
+        console.log('[Figma Translator] Sending request to API:', {
+            endpoint: config.apiEndpoint,
+            requestBody
+        });
 
         const response = await fetch(config.apiEndpoint, {
             method: 'POST',
