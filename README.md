@@ -29,7 +29,7 @@
 
 1. **克隆项目**
 ```bash
-git clone [https://github.com/Dimon94/figma-polyglot-ai.git]
+git clone https://github.com/Dimon94/figma-polyglot-ai.git
 cd figma-polyglot-ai
 ```
 
