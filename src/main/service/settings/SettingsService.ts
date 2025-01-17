@@ -3,6 +3,7 @@ export interface AISettings {
   apiEndpoint: string;
   modelName: string;
   provider: 'openai' | 'deepseek' | 'custom';
+  targetLanguage?: string; // 目标语言代码
 }
 
 export const DEFAULT_SETTINGS: AISettings = {

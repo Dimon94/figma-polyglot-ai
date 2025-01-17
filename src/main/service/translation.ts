@@ -3,15 +3,21 @@ interface TranslationConfig {
     apiEndpoint: string;
     modelName: string;
     provider: 'openai' | 'deepseek' | 'custom';
+    targetLanguage: string; // 目标语言代码，如 'en', 'ja', 'ko' 等
 }
 
 /**
- * 检测文本是否包含中文字符
+ * 检测文本语言
  * @param text 要检测的文本
- * @returns 是否包含中文
+ * @returns 检测到的语言代码
  */
-function containsChinese(text: string): boolean {
-    return /[\u4e00-\u9fa5]/.test(text);
+function detectLanguage(text: string): string {
+    // 简单的语言检测逻辑
+    if (/[\u4e00-\u9fa5]/.test(text)) return 'zh';
+    if (/[\u3040-\u30ff]/.test(text)) return 'ja';
+    if (/[\uac00-\ud7af]/.test(text)) return 'ko';
+    if (/^[a-zA-Z\s\d.,!?()-]+$/.test(text)) return 'en';
+    return 'unknown';
 }
 
 /**
@@ -24,9 +30,11 @@ export async function translateText(
     text: string,
     config: TranslationConfig
 ): Promise<string> {
-    // 如果不包含中文，直接返回原文
-    if (!containsChinese(text)) {
-        console.log('[Figma Translator] Text does not contain Chinese, skipping translation:', text);
+    const sourceLanguage = detectLanguage(text);
+    
+    // 如果源语言和目标语言相同，直接返回原文
+    if (sourceLanguage === config.targetLanguage) {
+        console.log('[Figma Translator] Source and target languages are the same, skipping translation:', text);
         return text;
     }
 
@@ -34,7 +42,9 @@ export async function translateText(
         console.log('[Figma Translator] Translation config:', {
             provider: config.provider,
             modelName: config.modelName,
-            apiEndpoint: config.apiEndpoint
+            apiEndpoint: config.apiEndpoint,
+            sourceLanguage,
+            targetLanguage: config.targetLanguage
         });
 
         // 根据不同的提供商构建请求体
@@ -43,7 +53,7 @@ export async function translateText(
             messages: [
                 {
                     role: "system",
-                    content: `You are a concise translator from Chinese to English. Follow these rules strictly:
+                    content: `You are a concise translator from ${sourceLanguage} to ${config.targetLanguage}. Follow these rules strictly:
 1. Keep translations CONCISE - aim for similar length as source text
 2. Use minimal words while preserving full meaning
 3. For UI/UX text:
@@ -55,10 +65,10 @@ export async function translateText(
    - Preserve all special characters
    - Maintain numbers and units as is
 5. Output must be:
-   - English only
+   - ${config.targetLanguage} only
    - Similar length to source
    - No explanations
-   - No Chinese characters`
+   - No source language characters`
                 },
                 {
                     role: "user",

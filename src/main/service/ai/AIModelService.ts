@@ -1,4 +1,5 @@
-import { SettingsService, AISettings } from '../settings/SettingsService';
+import { SettingsService } from '../settings/SettingsService';
+import type { AISettings } from '../settings/SettingsService';
 
 interface AIModelConfig {
   model: string;

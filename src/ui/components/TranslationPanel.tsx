@@ -1,16 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import '../styles/index.css';
+import './TranslationPanel.css';
 
-interface TranslationProgress {
+interface TranslationPanelProps {
+    onClose?: () => void;
+}
+
+interface ProgressState {
     progress: number;
     message: string;
 }
 
-export const TranslationPanel: React.FC = () => {
+export const TranslationPanel: React.FC<TranslationPanelProps> = () => {
     const [isTranslating, setIsTranslating] = useState(false);
-    const [progress, setProgress] = useState<TranslationProgress>({ progress: 0, message: '' });
+    const [progress, setProgress] = useState<ProgressState>({ progress: 0, message: '' });
+    const [targetLanguage, setTargetLanguage] = useState('en');
+    const [supportedLanguages, setSupportedLanguages] = useState<Array<{ code: string; name: string }>>([]);
 
     useEffect(() => {
+        // 获取支持的语言列表
+        parent.postMessage({ pluginMessage: { type: 'get-supported-languages' } }, '*');
+
         // 监听来自插件的消息
         window.onmessage = (event) => {
             const message = event.data.pluginMessage;
@@ -25,13 +34,20 @@ export const TranslationPanel: React.FC = () => {
             } else if (message.type === 'translation-complete') {
                 setIsTranslating(false);
                 setProgress({ progress: 0, message: '' });
+            } else if (message.type === 'supported-languages') {
+                setSupportedLanguages(message.languages);
             }
         };
     }, []);
 
     const handleTranslate = () => {
-        // 发送翻译消息给插件
-        parent.postMessage({ pluginMessage: { type: 'translate' } }, '*');
+        // 发送翻译消息给插件，包含目标语言信息
+        parent.postMessage({ 
+            pluginMessage: { 
+                type: 'translate',
+                targetLanguage 
+            } 
+        }, '*');
     };
 
     return (
@@ -52,7 +68,24 @@ export const TranslationPanel: React.FC = () => {
                 <div className="empty-state">
                     <div className="empty-state-icon">🌐</div>
                     <h2>开始翻译</h2>
-                    <p>选择要翻译的文本图层，然后点击下方按钮开始翻译。</p>
+                    <p>选择要翻译的文本图层和目标语言，然后点击下方按钮开始翻译。</p>
+                    
+                    <div className="language-selector">
+                        <label htmlFor="target-language">目标语言：</label>
+                        <select 
+                            id="target-language"
+                            value={targetLanguage}
+                            onChange={(e) => setTargetLanguage(e.target.value)}
+                            className="language-select"
+                        >
+                            {supportedLanguages.map(lang => (
+                                <option key={lang.code} value={lang.code}>
+                                    {lang.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
                     <button className="primary-button" onClick={handleTranslate}>
                         开始翻译
                     </button>

@@ -1,6 +1,7 @@
 import { TranslationHistory } from './service/translation/TranslationHistory';
 import { AIModelService } from './service/ai/AIModelService';
 import { SettingsService } from './service/settings/SettingsService';
+import { TranslationService } from './service/translation/TranslationService';
 import { traverseNode } from './utils/traverse';
 
 // 初始化服务
@@ -42,6 +43,7 @@ interface TranslationItem {
     translatedText: string;
     elementId: string;
     elementType: string;
+    targetLanguage?: string; // 目标语言代码
     position?: { x: number; y: number };
     style?: Record<string, any>;
     size?: {
@@ -51,10 +53,11 @@ interface TranslationItem {
 }
 
 // 处理翻译逻辑
-async function handleTranslation() {
+async function handleTranslation(targetLanguage: string = 'en') {
     try {
         console.log('[Figma Translator] Starting translation...');
         console.log('[Figma Translator] Current selection:', figma.currentPage.selection);
+        console.log('[Figma Translator] Target language:', targetLanguage);
 
         // 检查是否有选中的节点
         if (figma.currentPage.selection.length === 0) {
@@ -72,8 +75,11 @@ async function handleTranslation() {
             return;
         }
 
-        // 更新 AI 服务的设置
-        aiService.updateSettings(currentSettings);
+        // 更新 AI 服务的设置，添加目标语言
+        aiService.updateSettings({
+            ...currentSettings,
+            targetLanguage
+        });
 
         // 获取选中的节点
         const selection = figma.currentPage.selection[0];
@@ -129,7 +135,7 @@ async function handleTranslation() {
 
                     const sourceText = node.characters;
                     console.log('[Figma Translator] Translating text:', sourceText);
-                    const prompt = `Translate the following text to English:\n${sourceText}`;
+                    const prompt = `Translate the following text to ${targetLanguage}:\n${sourceText}`;
                     
                     try {
                         const translated = await aiService.generateContent(prompt, {
@@ -145,15 +151,15 @@ async function handleTranslation() {
 
                             // 收集翻译项
                             if (node.type === "TEXT") {
-                                const fontSize = node.fontSize;
                                 translations.push({
                                     sourceText: sourceText,
                                     translatedText: translated,
                                     elementId: node.id,
                                     elementType: node.type,
+                                    targetLanguage,
                                     position: { x: node.x, y: node.y },
                                     style: {
-                                        fontSize: typeof fontSize === 'number' ? fontSize : undefined,
+                                        fontSize: typeof node.fontSize === 'number' ? node.fontSize : undefined,
                                         fontName: node.fontName as FontName,
                                         textAlignHorizontal: node.textAlignHorizontal,
                                         textAlignVertical: node.textAlignVertical,
@@ -216,7 +222,7 @@ if (figma.command === 'translate') {
 figma.ui.onmessage = async (msg) => {
     try {
         if (msg.type === 'translate') {
-            await handleTranslation();
+            await handleTranslation(msg.targetLanguage);
         }
         else if (msg.type === 'load-settings') {
             // 加载设置
@@ -254,6 +260,14 @@ figma.ui.onmessage = async (msg) => {
             console.log('[Figma Translator] Translation history cleared');
             figma.ui.postMessage({ type: 'history-cleared' });
             figma.notify('历史记录已清空');
+        }
+        else if (msg.type === 'get-supported-languages') {
+            // 获取支持的语言列表
+            const languages = TranslationService.getSupportedLanguages();
+            figma.ui.postMessage({ 
+                type: 'supported-languages',
+                languages 
+            });
         }
     } catch (error: any) {
         console.error('[Figma Translator] Failed to handle message:', error);

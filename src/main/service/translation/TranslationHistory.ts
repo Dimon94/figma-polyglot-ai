@@ -3,16 +3,9 @@ export interface TranslationItem {
   translatedText: string;
   elementId: string;
   elementType: string;
+  targetLanguage?: string;
   position?: { x: number; y: number };
-  style?: {
-    fontSize?: number;
-    fontName?: FontName;
-    textAlignHorizontal?: "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED";
-    textAlignVertical?: "TOP" | "CENTER" | "BOTTOM";
-    fills?: Paint[];
-    effects?: Effect[];
-    constraints?: Constraints;
-  };
+  style?: Record<string, any>;
   size?: {
     width: number;
     height: number;

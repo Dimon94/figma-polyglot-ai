@@ -5,6 +5,25 @@ export class TranslationService {
   constructor(private readonly aiService: AIModelService) {}
 
   /**
+   * 获取支持的语言列表
+   * @returns 支持的语言代码和名称映射
+   */
+  static getSupportedLanguages(): { code: string; name: string }[] {
+    return [
+      { code: 'en', name: 'English (英语)' },
+      { code: 'zh', name: '中文' },
+      { code: 'ja', name: '日本語 (日语)' },
+      { code: 'ko', name: '한국어 (韩语)' },
+      { code: 'fr', name: 'Français (法语)' },
+      { code: 'de', name: 'Deutsch (德语)' },
+      { code: 'es', name: 'Español (西班牙语)' },
+      { code: 'it', name: 'Italiano (意大利语)' },
+      { code: 'ru', name: 'Русский (俄语)' },
+      { code: 'pt', name: 'Português (葡萄牙语)' }
+    ];
+  }
+
+  /**
    * 翻译文本
    * @param text 要翻译的文本
    * @param targetLanguage 目标语言
@@ -27,6 +46,7 @@ export class TranslationService {
         translatedText,
         elementId: 'single-translation',
         elementType: 'TEXT',
+        targetLanguage, // 添加目标语言信息
       };
 
       // 保存到翻译历史
@@ -65,6 +85,7 @@ export class TranslationService {
         translatedText: translatedTexts[index],
         elementId: `batch-translation-${index}`,
         elementType: 'TEXT',
+        targetLanguage, // 添加目标语言信息
       }));
 
       // 保存到翻译历史
