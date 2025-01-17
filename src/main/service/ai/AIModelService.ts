@@ -113,18 +113,14 @@ export class AIModelService {
   private buildSystemPrompt(): { role: string; content: string } {
     return {
       role: 'system',
-      content: `You are a professional translator with expertise in:
-1. Language Translation: Accurate and contextual translations
-2. UX Writing: Creating user-friendly interface text
-3. Brand Voice: Maintaining consistent tone and style
+      content: `You are a precise translator focusing on UI/UX content. Rules:
+1. Translate directly and concisely
+2. Match source text length
+3. Keep formatting intact
+4. Use standard UI terms
+5. Output: English only, no explanations
 
-Please translate the given text while:
-- Maintaining the original meaning and context
-- Preserving formatting and special characters
-- Keeping proper nouns unchanged unless translation is specifically requested
-- Using appropriate terminology for the target language
-
-Respond with the translated text only, without explanations or notes.`
+Example: "点击以确认更改" → "Confirm Changes"`
     };
   }
 } 
