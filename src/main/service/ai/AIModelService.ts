@@ -1,4 +1,4 @@
-import { SettingsService } from '../settings/SettingsService';
+import { SettingsService, AISettings } from '../settings/SettingsService';
 
 interface AIModelConfig {
   model: string;
@@ -16,9 +16,19 @@ interface APIError extends Error {
  */
 export class AIModelService {
   private settingsService: SettingsService;
+  private currentSettings: AISettings;
 
   constructor() {
     this.settingsService = SettingsService.getInstance();
+    this.currentSettings = this.settingsService.getCurrentSettings();
+  }
+
+  /**
+   * 更新设置
+   */
+  updateSettings(settings: AISettings): void {
+    console.log('[AIModelService] Updating settings:', settings);
+    this.currentSettings = settings;
   }
 
   /**
@@ -29,33 +39,20 @@ export class AIModelService {
    */
   async generateContent(prompt: string, config: AIModelConfig): Promise<string> {
     try {
-      const response = await fetch(this.settingsService.getApiEndpoint(), {
+      console.log('[AIModelService] Generating content with settings:', this.currentSettings);
+      console.log('[AIModelService] Prompt:', prompt);
+      console.log('[AIModelService] Config:', config);
+
+      const response = await fetch(this.currentSettings.apiEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.settingsService.getApiKey()}`,
+          'Authorization': `Bearer ${this.currentSettings.apiKey}`,
         },
         body: JSON.stringify({
           model: this.getModelIdentifier(config.model),
           messages: [
-            {
-              role: 'system',
-              content: `You are a professional SVG designer and developer with expertise in:
-1. Icon Design: Creating clean, modern, and visually appealing icons
-2. SVG Development: Writing optimized, standards-compliant SVG code
-3. Vector Graphics: Understanding paths, shapes, and transformations
-4. Design Principles: Applying composition, balance, and visual hierarchy
-5. Technical Standards: Following W3C SVG specifications
-
-Your task is to generate SVG code that is:
-- Semantically structured
-- Optimized for performance
-- Visually balanced and appealing
-- Accessible and scalable
-- Standards-compliant
-
-Output only valid SVG code without any explanation or markdown formatting.`,
-            },
+            this.buildSystemPrompt(),
             {
               role: 'user',
               content: prompt,
@@ -67,14 +64,17 @@ Output only valid SVG code without any explanation or markdown formatting.`,
       });
 
       if (!response.ok) {
-        throw new Error(`API请求失败: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('[AIModelService] API response error:', response.status, errorText);
+        throw new Error(`API请求失败: ${response.status} ${response.statusText}\n${errorText}`);
       }
 
       const data = await response.json();
+      console.log('[AIModelService] API response:', data);
       return data.choices[0].message.content.trim();
     } catch (error: unknown) {
       const apiError = error as APIError;
-      console.error('AI内容生成失败:', apiError);
+      console.error('[AIModelService] Content generation failed:', apiError);
       throw new Error(`AI内容生成失败: ${apiError.message}`);
     }
   }
@@ -83,19 +83,48 @@ Output only valid SVG code without any explanation or markdown formatting.`,
    * 获取模型标识符
    */
   private getModelIdentifier(model: string): string {
+    console.log('[AIModelService] Getting model identifier for:', model);
+    console.log('[AIModelService] Current settings:', this.currentSettings);
+    
+    // 如果设置中有指定的模型名称，优先使用
+    if (this.currentSettings.modelName) {
+      return this.currentSettings.modelName;
+    }
+
+    // 否则根据提供商选择默认模型
     const modelMap: Record<string, string> = {
       'openai': 'gpt-4',
       'deepseek': 'deepseek-chat',
-      'custom': model // 对于自定义模型，直接使用传入的模型名称
+      'custom': model
     };
 
-    return modelMap[model] || model;
+    const selectedModel = modelMap[this.currentSettings.provider] || model;
+    console.log('[AIModelService] Selected model:', selectedModel);
+    return selectedModel;
   }
 
   /**
    * 获取当前AI设置
    */
-  getSettings() {
-    return this.settingsService.getCurrentSettings();
+  getSettings(): AISettings {
+    return this.currentSettings;
+  }
+
+  private buildSystemPrompt(): { role: string; content: string } {
+    return {
+      role: 'system',
+      content: `You are a professional translator with expertise in:
+1. Language Translation: Accurate and contextual translations
+2. UX Writing: Creating user-friendly interface text
+3. Brand Voice: Maintaining consistent tone and style
+
+Please translate the given text while:
+- Maintaining the original meaning and context
+- Preserving formatting and special characters
+- Keeping proper nouns unchanged unless translation is specifically requested
+- Using appropriate terminology for the target language
+
+Respond with the translated text only, without explanations or notes.`
+    };
   }
 } 

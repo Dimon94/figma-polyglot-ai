@@ -36,44 +36,51 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
     setError(null);
 
     try {
-      await parent.postMessage({
+      // 发送保存设置消息
+      parent.postMessage({
         pluginMessage: {
           type: 'save-settings',
           settings
         }
       }, '*');
-      
-      if (onClose) {
-        onClose();
-      }
+
+      // 监听保存结果
+      const handleSaveResponse = (event: MessageEvent) => {
+        const message = event.data.pluginMessage;
+        if (message && message.type === 'settings-saved') {
+          if (onClose) {
+            onClose();
+          }
+        }
+      };
+
+      window.addEventListener('message', handleSaveResponse);
+      setTimeout(() => {
+        window.removeEventListener('message', handleSaveResponse);
+        setIsSaving(false);
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : '保存设置失败');
-    } finally {
       setIsSaving(false);
     }
   };
 
   return (
     <div className="settings-panel">
-      <div className="header">
-        <h1>设置</h1>
-        {onClose && (
-          <button className="close-button" onClick={onClose}>
-            ×
-          </button>
-        )}
-      </div>
-
-      <div className="main-content">
+      <div className="settings-content">
         {error && (
           <div className="error-message">
-            {error}
+            <span className="error-icon">⚠️</span>
+            <p>{error}</p>
           </div>
         )}
 
         <div className="settings-form">
-          <div className="setting-item">
-            <label htmlFor="provider">AI 提供商</label>
+          <div className="form-group">
+            <label htmlFor="provider">
+              <span className="label-icon">🤖</span>
+              AI 提供商
+            </label>
             <select
               id="provider"
               value={settings.provider}
@@ -88,8 +95,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
             </select>
           </div>
 
-          <div className="setting-item">
-            <label htmlFor="apiKey">API 密钥</label>
+          <div className="form-group">
+            <label htmlFor="apiKey">
+              <span className="label-icon">🔑</span>
+              API 密钥
+            </label>
             <input
               type="password"
               id="apiKey"
@@ -102,8 +112,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
             />
           </div>
 
-          <div className="setting-item">
-            <label htmlFor="apiEndpoint">API 端点</label>
+          <div className="form-group">
+            <label htmlFor="apiEndpoint">
+              <span className="label-icon">🔌</span>
+              API 端点
+            </label>
             <input
               type="text"
               id="apiEndpoint"
@@ -119,8 +132,11 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
             </span>
           </div>
 
-          <div className="setting-item">
-            <label htmlFor="modelName">模型名称</label>
+          <div className="form-group">
+            <label htmlFor="modelName">
+              <span className="label-icon">🧠</span>
+              模型名称
+            </label>
             <input
               type="text"
               id="modelName"
@@ -137,11 +153,21 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
           </div>
 
           <button
-            className="save-button"
+            className={`save-button ${isSaving ? 'saving' : ''}`}
             onClick={handleSave}
             disabled={isSaving}
           >
-            {isSaving ? '保存中...' : '保存设置'}
+            {isSaving ? (
+              <>
+                <span className="spinner">⌛</span>
+                保存中...
+              </>
+            ) : (
+              <>
+                <span className="button-icon">💾</span>
+                保存设置
+              </>
+            )}
           </button>
         </div>
       </div>

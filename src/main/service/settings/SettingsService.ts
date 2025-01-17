@@ -20,7 +20,11 @@ export class SettingsService {
   private static instance: SettingsService;
   private currentSettings: AISettings = DEFAULT_SETTINGS;
 
-  private constructor() {}
+  private constructor() {
+    this.loadSettings().catch(error => {
+      console.error('初始化加载设置失败:', error);
+    });
+  }
 
   public static getInstance(): SettingsService {
     if (!SettingsService.instance) {
@@ -35,10 +39,15 @@ export class SettingsService {
   public async loadSettings(): Promise<AISettings> {
     try {
       const settings = await figma.clientStorage.getAsync('settings');
-      this.currentSettings = settings || DEFAULT_SETTINGS;
+      if (settings) {
+        this.currentSettings = settings;
+        console.log('[SettingsService] Loaded settings:', settings);
+      } else {
+        console.log('[SettingsService] No saved settings found, using defaults');
+      }
       return this.currentSettings;
     } catch (error) {
-      console.error('加载设置失败:', error);
+      console.error('[SettingsService] Failed to load settings:', error);
       return DEFAULT_SETTINGS;
     }
   }
