@@ -40,12 +40,13 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = () => {
         };
     }, []);
 
-    const handleTranslate = () => {
-        // 发送翻译消息给插件，包含目标语言信息
+    const handleTranslate = (mode: 'copy' | 'translate') => {
+        // 发送翻译消息给插件，包含目标语言信息和模式
         parent.postMessage({ 
             pluginMessage: { 
                 type: 'translate',
-                targetLanguage 
+                targetLanguage,
+                mode 
             } 
         }, '*');
     };
@@ -86,9 +87,20 @@ export const TranslationPanel: React.FC<TranslationPanelProps> = () => {
                         </select>
                     </div>
 
-                    <button className="primary-button" onClick={handleTranslate}>
-                        开始翻译
-                    </button>
+                    <div className="button-group">
+                        <button 
+                            className="primary-button" 
+                            onClick={() => handleTranslate('copy')}
+                        >
+                            复制并翻译
+                        </button>
+                        <button 
+                            className="secondary-button" 
+                            onClick={() => handleTranslate('translate')}
+                        >
+                            仅翻译
+                        </button>
+                    </div>
                 </div>
             )}
         </div>

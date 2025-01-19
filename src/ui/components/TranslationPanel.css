@@ -62,8 +62,20 @@
     max-width: 300px;
 }
 
+.button-group {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+    width: 100%;
+}
+
+.button-group button {
+    flex: 1;
+    min-width: 120px;
+}
+
 .primary-button {
-    background-color: #18a0fb;
+    background-color: #18A0FB;
     color: white;
     border: none;
     border-radius: 6px;
@@ -75,11 +87,27 @@
 }
 
 .primary-button:hover {
-    background-color: #0d8ee9;
+    background-color: #0D8DE3;
 }
 
 .primary-button:active {
     background-color: #0c7fd0;
+}
+
+.secondary-button {
+    background-color: white;
+    color: #18A0FB;
+    border: 1px solid #18A0FB;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.secondary-button:hover {
+    background-color: #F5F5F5;
 }
 
 /* 语言选择器样式 */
